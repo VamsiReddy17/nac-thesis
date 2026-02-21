@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, Line, ComposedChart
+  Cell, Line, ComposedChart
 } from "recharts";
 
 // ─── PALETTE ────────────────────────────────────────
@@ -20,7 +20,6 @@ const RESP_C = ["#10b981","#34d399","#fbbf24","#f43f5e"];
 
 // ─── DATA ───────────────────────────────────────────
 const age = [{g:"<40 yrs",n:5,p:13.5},{g:"41-50 yrs",n:14,p:37.8},{g:"51-60 yrs",n:12,p:32.4},{g:"61-70 yrs",n:3,p:8.1},{g:">70 yrs",n:3,p:8.1}];
-const lat = [{name:"Left",n:21,p:56.8},{name:"Right",n:16,p:43.2}];
 const clin = [{f:"Mass",n:34,p:91.9},{f:"Mass + Palpable LN",n:1,p:2.7},{f:"Pain & Swelling",n:2,p:5.4}];
 const diam = [{ph:"Pre-Chemo",mean:4.49,sd:2.19,min:1.4,max:11.5},{ph:"Post-Chemo",mean:2.19,sd:2.06,min:0.1,max:6.8}];
 const diamH = [{n:"EP PR +ve",pre:3.586,post:2.657},{n:"ER+ve Her2+",pre:8.19,post:4.0},{n:"Her2 +ve",pre:4.886,post:1.663},{n:"PR +ve",pre:3.85,post:0.5},{n:"PR+ve Her2+",pre:7.1,post:2.35},{n:"TNBC",pre:4.85,post:3.588},{n:"TPBC",pre:3.7,post:1.2}];
