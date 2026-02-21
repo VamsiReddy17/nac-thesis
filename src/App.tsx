@@ -1,555 +1,584 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, Line, ComposedChart
 } from "recharts";
 
-const C = ["#4f46e5","#ec4899","#8b5cf6","#f59e0b","#10b981","#6366f1","#f43f5e","#06b6d4","#84cc16","#a855f7"];
+// ─── PALETTE ────────────────────────────────────────
+const P = {
+  indigo: "#6366f1", indigoDk: "#4338ca", indigoLt: "#eef2ff",
+  rose: "#f43f5e", roseDk: "#be123c", roseLt: "#fff1f2",
+  emerald: "#10b981", emeraldDk: "#047857", emeraldLt: "#ecfdf5",
+  amber: "#f59e0b", amberDk: "#92400e", amberLt: "#fffbeb",
+  cyan: "#06b6d4", violet: "#8b5cf6", slate: "#64748b",
+  bg: "#f8fafc", card: "#ffffff", border: "#e2e8f0",
+  text: "#0f172a", textSec: "#475569", textMuted: "#94a3b8",
+};
+const CC = ["#6366f1","#f43f5e","#10b981","#f59e0b","#06b6d4","#8b5cf6","#ec4899","#84cc16","#a855f7","#14b8a6"];
+const RCB_C = ["#10b981","#06b6d4","#f59e0b","#f43f5e"];
+const RESP_C = ["#10b981","#34d399","#fbbf24","#f43f5e"];
 
-export default function App() {
-  const [dummy] = useState(0);
+// ─── DATA ───────────────────────────────────────────
+const age = [{g:"<40 yrs",n:5,p:13.5},{g:"41-50 yrs",n:14,p:37.8},{g:"51-60 yrs",n:12,p:32.4},{g:"61-70 yrs",n:3,p:8.1},{g:">70 yrs",n:3,p:8.1}];
+const lat = [{name:"Left",n:21,p:56.8},{name:"Right",n:16,p:43.2}];
+const clin = [{f:"Mass",n:34,p:91.9},{f:"Mass + Palpable LN",n:1,p:2.7},{f:"Pain & Swelling",n:2,p:5.4}];
+const diam = [{ph:"Pre-Chemo",mean:4.49,sd:2.19,min:1.4,max:11.5},{ph:"Post-Chemo",mean:2.19,sd:2.06,min:0.1,max:6.8}];
+const diamH = [{n:"EP PR +ve",pre:3.586,post:2.657},{n:"ER+ve Her2+",pre:8.19,post:4.0},{n:"Her2 +ve",pre:4.886,post:1.663},{n:"PR +ve",pre:3.85,post:0.5},{n:"PR+ve Her2+",pre:7.1,post:2.35},{n:"TNBC",pre:4.85,post:3.588},{n:"TPBC",pre:3.7,post:1.2}];
+const diamB = [{n:"Adenoid Cystic",pre:7.0,post:4.8},{n:"DCIS",pre:4.7,post:0.0},{n:"Inv. Ca. Breast",pre:3.988,post:1.881},{n:"Inv. Ca. Sq.",pre:11.5,post:4.7},{n:"Inv. Ductal Ca.",pre:5.16,post:1.9},{n:"Inv. Solid Pap.",pre:4.5,post:6.6}];
+const hormone = [{n:"TPBC",v:9,p:24.3},{n:"Her2 +ve",v:8,p:21.6},{n:"TNBC",v:8,p:21.6},{n:"EP PR +ve",v:7,p:18.9},{n:"PR +ve",v:2,p:5.4},{n:"PR+ve Her2+",v:2,p:5.4},{n:"ER+ve Her2+",v:1,p:2.7}];
+const biopsy = [{t:"Invasive Ca. of Breast",n:26,p:70.3},{t:"Invasive Ductal Ca.",n:5,p:13.5},{t:"Ductal Ca. In Situ",n:2,p:5.4},{t:"Inv. Solid Papillary Ca.",n:2,p:5.4},{t:"Adenoid Cystic Ca.",n:1,p:2.7},{t:"Inv. Ca. Sq. Diff.",n:1,p:2.7}];
+const resp = [{name:"Complete",n:11,p:29.7},{name:"Partial",n:16,p:43.2},{name:"Stable",n:7,p:18.9},{name:"Progressive",n:3,p:8.1}];
+const rcb = [{name:"Class 0 (pCR)",n:12,p:32.4},{name:"Class I",n:7,p:18.9},{name:"Class II",n:13,p:35.1},{name:"Class III",n:5,p:13.5}];
+const nodal = [{ph:"Pre-Chemo",pos:28,neg:9},{ph:"Post-Chemo",pos:12,neg:25}];
+const tnmPre = [{s:"CT4BN2M0",n:6},{s:"CT3N1M0",n:4},{s:"CT2N0M0",n:3},{s:"CT2N1",n:3},{s:"CT2N1M0",n:3},{s:"CT2N0",n:2},{s:"CT3N0M0",n:2},{s:"CT4BN0",n:2},{s:"CT4BN0M0",n:2},{s:"Others (9)",n:9}];
+const tnmPost = [{s:"YPT0N0",n:12},{s:"YPT1AN0",n:3},{s:"YPT3N0",n:3},{s:"YPT0N1",n:2},{s:"YPT1A(4)N1A",n:2},{s:"YPT1CN0",n:2},{s:"YPT2N0",n:2},{s:"YPT2N1A",n:2},{s:"Others (9)",n:9}];
 
-  /* ════════════════════════════════════════════════════════
-     DATA
-  ════════════════════════════════════════════════════════ */
+const allStats = [
+  {t:"RCB Class × Clinical Response",chi:20.20,p:0.01,s:true},
+  {t:"Clinical TNM × Biopsy Histology",chi:124.49,p:0.009,s:true},
+  {t:"pCR × Clinical Response",chi:7.74,p:0.05,s:true},
+  {t:"Biopsy × Clinical Response",chi:17.40,p:0.129,s:false},
+  {t:"Age Group × RCB Class",chi:14.89,p:0.24,s:false},
+  {t:"Age Group × Clinical Response",chi:13.82,p:0.31,s:false},
+  {t:"Clinical TNM × RCB Class",chi:57.04,p:0.36,s:false},
+  {t:"Hormone × Clinical Features",chi:11.83,p:0.45,s:false},
+  {t:"Hormone × RCB Class",chi:17.59,p:0.48,s:false},
+  {t:"Hormone × pCR",chi:5.26,p:0.51,s:false},
+  {t:"Biopsy × RCB Class",chi:14.13,p:0.51,s:false},
+  {t:"Hormone × Laterality",chi:5.17,p:0.52,s:false},
+  {t:"Age Group × pCR",chi:3.10,p:0.54,s:false},
+  {t:"Biopsy × pCR",chi:2.38,p:0.79,s:false},
+  {t:"Hormone × Clinical Response",chi:12.47,p:0.82,s:false},
+];
 
-  // 1. Demographics
-  const age = [
-    { group: "<40 yrs", n: 5, pct: 13.5 },{ group: "41-50 yrs", n: 14, pct: 37.8 },
-    { group: "51-60 yrs", n: 12, pct: 32.4 },{ group: "61-70 yrs", n: 3, pct: 8.1 },
-    { group: ">70 yrs", n: 3, pct: 8.1 },
-  ];
-  const lat = [{ name: "Left", n: 21, pct: 56.8 },{ name: "Right", n: 16, pct: 43.2 }];
+const crossTabs: Array<{t:string;h:string[];r:any[][];chi:number;pv:number;sig:boolean}> = [
+  {t:"Age Group × pCR",h:["Age Group","No (n)","No (%)","Yes (n)","Yes (%)","Total"],r:[["<40 yrs",5,"100.0%",0,"0.0%",5],["41-50 yrs",8,"57.1%",6,"42.9%",14],["51-60 yrs",8,"66.7%",4,"33.3%",12],["61-70 yrs",2,"66.7%",1,"33.3%",3],[">70 yrs",2,"66.7%",1,"33.3%",3],["Total",25,"67.6%",12,"32.4%",37]],chi:3.10,pv:0.54,sig:false},
+  {t:"Age Group × RCB Class",h:["Age Group","Class 0","Class I","Class II","Class III","Total"],r:[["<40 yrs","0 (0%)","1 (20%)","3 (60%)","1 (20%)",5],["41-50","6 (42.9%)","3 (21.4%)","5 (35.7%)","0 (0%)",14],["51-60","4 (33.3%)","3 (25%)","1 (8.3%)","4 (33.3%)",12],["61-70","1 (33.3%)","0 (0%)","2 (66.7%)","0 (0%)",3],[">70","1 (33.3%)","0 (0%)","2 (66.7%)","0 (0%)",3],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]],chi:14.89,pv:0.24,sig:false},
+  {t:"Age Group × Clinical Response",h:["Age Group","Complete","Partial","Progressive","Stable","Total"],r:[["<40 yrs","1 (20%)","3 (60%)","0","1 (20%)",5],["41-50","6 (42.9%)","8 (57.1%)","0","0",14],["51-60","3 (25%)","3 (25%)","2 (16.7%)","4 (33.3%)",12],["61-70","0","1 (33.3%)","1 (33.3%)","1 (33.3%)",3],[">70","1 (33.3%)","1 (33.3%)","0","1 (33.3%)",3],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]],chi:13.82,pv:0.31,sig:false},
+  {t:"Hormone Status × Laterality",h:["Hormone","Left","Right","Total"],r:[["EP PR +ve","4 (57.1%)","3 (42.9%)",7],["ER+ve Her2+","0","1 (100%)",1],["Her2 +ve","6 (75%)","2 (25%)",8],["PR +ve","1 (50%)","1 (50%)",2],["PR+ve Her2+","2 (100%)","0",2],["TNBC","3 (37.5%)","5 (62.5%)",8],["TPBC","5 (55.6%)","4 (44.4%)",9],["Total","21 (56.8%)","16 (43.2%)",37]],chi:5.17,pv:0.52,sig:false},
+  {t:"Hormone Status × Clinical Features",h:["Hormone","Mass","Mass+LN","Pain/Swell","Total"],r:[["EP PR +ve","7 (100%)","0","0",7],["ER+ve Her2+","1 (100%)","0","0",1],["Her2 +ve","5 (62.5%)","1 (12.5%)","2 (25%)",8],["PR +ve","2 (100%)","0","0",2],["PR+ve Her2+","2 (100%)","0","0",2],["TNBC","8 (100%)","0","0",8],["TPBC","9 (100%)","0","0",9],["Total","34 (91.9%)","1 (2.7%)","2 (5.4%)",37]],chi:11.83,pv:0.45,sig:false},
+  {t:"Hormone Status × pCR",h:["Hormone","No","Yes","Total"],r:[["EP PR +ve","6 (85.7%)","1 (14.3%)",7],["ER+ve Her2+","1 (100%)","0",1],["Her2 +ve","4 (50%)","4 (50%)",8],["PR +ve","1 (50%)","1 (50%)",2],["PR+ve Her2+","1 (50%)","1 (50%)",2],["TNBC","7 (87.5%)","1 (12.5%)",8],["TPBC","5 (55.6%)","4 (44.4%)",9],["Total","25 (67.6%)","12 (32.4%)",37]],chi:5.26,pv:0.51,sig:false},
+  {t:"Hormone Status × RCB Class",h:["Hormone","Class 0","Class I","Class II","Class III","Total"],r:[["EP PR +ve","1 (14.3%)","1 (14.3%)","4 (57.1%)","1 (14.3%)",7],["ER+ve Her2+","0","0","1 (100%)","0",1],["Her2 +ve","4 (50%)","0","4 (50%)","0",8],["PR +ve","1 (50%)","1 (50%)","0","0",2],["PR+ve Her2+","1 (50%)","0","1 (50%)","0",2],["TNBC","1 (12.5%)","2 (25%)","3 (37.5%)","2 (25%)",8],["TPBC","4 (44.4%)","3 (33.3%)","0","2 (22.2%)",9],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]],chi:17.59,pv:0.48,sig:false},
+  {t:"Hormone Status × Clinical Response",h:["Hormone","Complete","Partial","Progressive","Stable","Total"],r:[["EP PR +ve","1 (14.3%)","2 (28.6%)","1 (14.3%)","3 (42.9%)",7],["ER+ve Her2+","0","1 (100%)","0","0",1],["Her2 +ve","2 (25%)","5 (62.5%)","0","1 (12.5%)",8],["PR +ve","1 (50%)","1 (50%)","0","0",2],["PR+ve Her2+","1 (50%)","1 (50%)","0","0",2],["TNBC","1 (12.5%)","4 (50%)","1 (12.5%)","2 (25%)",8],["TPBC","5 (55.6%)","2 (22.2%)","1 (11.1%)","1 (11.1%)",9],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]],chi:12.47,pv:0.82,sig:false},
+  {t:"Biopsy × pCR",h:["Biopsy","No","Yes","Total"],r:[["Adenoid Cystic","1 (100%)","0",1],["DCIS","1 (50%)","1 (50%)",2],["Inv. Ca. Breast","17 (65.4%)","9 (34.6%)",26],["Inv. Ca. Sq.","1 (100%)","0",1],["Inv. Ductal Ca.","3 (60%)","2 (40%)",5],["Inv. Solid Pap.","2 (100%)","0",2],["Total","25 (67.6%)","12 (32.4%)",37]],chi:2.38,pv:0.79,sig:false},
+  {t:"Biopsy × RCB Class",h:["Biopsy","Class 0","Class I","Class II","Class III","Total"],r:[["Adenoid Cystic","0","0","1 (100%)","0",1],["DCIS","1 (50%)","1 (50%)","0","0",2],["Inv. Ca. Breast","9 (34.6%)","5 (19.2%)","9 (34.6%)","3 (11.5%)",26],["Inv. Ca. Sq.","0","0","1 (100%)","0",1],["Inv. Ductal Ca.","2 (40%)","1 (20%)","0","2 (40%)",5],["Inv. Solid Pap.","0","0","2 (100%)","0",2],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]],chi:14.13,pv:0.51,sig:false},
+  {t:"Biopsy × Clinical Response",h:["Biopsy","Complete","Partial","Progressive","Stable","Total"],r:[["Adenoid Cystic","0","1 (100%)","0","0",1],["DCIS","2 (100%)","0","0","0",2],["Inv. Ca. Breast","6 (23.1%)","13 (50%)","2 (7.7%)","5 (19.2%)",26],["Inv. Ca. Sq.","0","1 (100%)","0","0",1],["Inv. Ductal Ca.","3 (60%)","1 (20%)","0","1 (20%)",5],["Inv. Solid Pap.","0","0","1 (50%)","1 (50%)",2],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]],chi:17.40,pv:0.129,sig:false},
+  {t:"RCB Class × Clinical Response ★",h:["RCB Class","Complete","Partial","Progressive","Stable","Total"],r:[["Class 0","7 (58.3%)","3 (25%)","0","2 (16.7%)",12],["Class I","2 (28.6%)","4 (57.1%)","0","1 (14.3%)",7],["Class II","1 (7.7%)","9 (69.2%)","1 (7.7%)","2 (15.4%)",13],["Class III","1 (20%)","0","2 (40%)","2 (40%)",5],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]],chi:20.20,pv:0.01,sig:true},
+  {t:"pCR × Clinical Response ★",h:["pCR","Complete","Partial","Progressive","Stable","Total"],r:[["No","4 (16%)","13 (52%)","3 (12%)","5 (20%)",25],["Yes","7 (58.3%)","3 (25%)","0","2 (16.7%)",12],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]],chi:7.74,pv:0.05,sig:true},
+  {t:"Clinical TNM × Biopsy ★",h:["Association","χ²","P Value","Significance"],r:[["Clinical TNM × Biopsy","124.49","0.009","Significant"]],chi:124.49,pv:0.009,sig:true},
+  {t:"Clinical TNM × RCB Class",h:["Association","χ²","P Value","Significance"],r:[["Clinical TNM × RCB","57.04","0.36","Not Significant"]],chi:57.04,pv:0.36,sig:false},
+];
 
-  // 2. Clinical Profile
-  const clin = [
-    { feature: "Mass", n: 34, pct: 91.9 },
-    { feature: "Mass With Palpable Lymphnodes", n: 1, pct: 2.7 },
-    { feature: "Pain And Swelling", n: 2, pct: 5.4 },
-  ];
-  const diam = [
-    { phase: "Pre-Chemotherapy", mean: 4.49, sd: 2.19, min: 1.4, max: 11.5 },
-    { phase: "Post-Chemotherapy", mean: 2.19, sd: 2.06, min: 0.1, max: 6.8 },
-  ];
-  const diamH = [
-    { name: "EP PR +ve", pre: 3.586, post: 2.657 },{ name: "ER+ve Her2+", pre: 8.19, post: 4.0 },
-    { name: "Her2 +ve", pre: 4.886, post: 1.663 },{ name: "PR +ve", pre: 3.85, post: 0.5 },
-    { name: "PR+ve Her2+", pre: 7.1, post: 2.35 },{ name: "TNBC", pre: 4.85, post: 3.588 },
-    { name: "TPBC", pre: 3.7, post: 1.2 },
-  ];
-  const diamB = [
-    { name: "Adenoid Cystic", pre: 7.0, post: 4.8 },{ name: "DCIS", pre: 4.7, post: 0.0 },
-    { name: "Inv. Ca. Breast", pre: 3.988, post: 1.881 },{ name: "Inv. Ca. Sq. Diff.", pre: 11.5, post: 4.7 },
-    { name: "Inv. Ductal Ca.", pre: 5.16, post: 1.9 },{ name: "Inv. Solid Pap.", pre: 4.5, post: 6.6 },
-  ];
+const secs = ["Overview","Demographics","Clinical","Biology","Staging","Response","Pathology","Cross-Tabs","Summary"];
 
-  // 3. Biological Profiling
-  const hormone = [
-    { name: "EP PR +ve", n: 7, pct: 18.9 },{ name: "ER+ve Her2 +ve", n: 1, pct: 2.7 },
-    { name: "Her2 +ve", n: 8, pct: 21.6 },{ name: "PR +ve", n: 2, pct: 5.4 },
-    { name: "PR +ve Her2 +ve", n: 2, pct: 5.4 },{ name: "TNBC", n: 8, pct: 21.6 },
-    { name: "TPBC", n: 9, pct: 24.3 },
-  ];
-  const biopsy = [
-    { type: "Adenoid Cystic Carcinoma (High Grade)", n: 1, pct: 2.7 },
-    { type: "Ductal Carcinoma In Situ", n: 2, pct: 5.4 },
-    { type: "Invasive Carcinoma of Breast", n: 26, pct: 70.3 },
-    { type: "Invasive Ca. with Squamous Diff.", n: 1, pct: 2.7 },
-    { type: "Invasive Ductal Carcinoma", n: 5, pct: 13.5 },
-    { type: "Invasive Solid Papillary Ca.", n: 2, pct: 5.4 },
-  ];
-
-  // 4. TNM Staging
-  const tnmPre = [
-    { s: "CT1N0M0", n: 1, p: 2.7 },{ s: "CT2N0", n: 2, p: 5.4 },{ s: "CT2N0M0", n: 3, p: 8.1 },
-    { s: "CT2N1", n: 3, p: 8.1 },{ s: "CT2N1M0", n: 3, p: 8.1 },{ s: "CT2N1M1", n: 1, p: 2.7 },
-    { s: "CT3N0", n: 1, p: 2.7 },{ s: "CT3N0M0", n: 2, p: 5.4 },{ s: "CT3N1", n: 1, p: 2.7 },
-    { s: "CT3N1M0", n: 4, p: 10.8 },{ s: "CT3N1M1", n: 1, p: 2.7 },{ s: "CT3N2M0", n: 1, p: 2.7 },
-    { s: "CT4AN1M0", n: 1, p: 2.7 },{ s: "CT4BN0", n: 2, p: 5.4 },{ s: "CT4BN0M0", n: 2, p: 5.4 },
-    { s: "CT4BN1", n: 1, p: 2.7 },{ s: "CT4bN2a", n: 1, p: 2.7 },{ s: "CT4BN2M0", n: 6, p: 16.2 },
-    { s: "CT4BN3C", n: 1, p: 2.7 },
-  ];
-  const tnmPost = [
-    { s: "YPT0N0", n: 12, p: 32.4 },{ s: "YPT0N1", n: 2, p: 5.4 },{ s: "YPT1A(4)N1A", n: 2, p: 5.4 },
-    { s: "YPT1AN0", n: 3, p: 8.1 },{ s: "YPT1aN1a", n: 1, p: 2.7 },{ s: "YPT1aN2a", n: 1, p: 2.7 },
-    { s: "YPT1B(2)N0", n: 1, p: 2.7 },{ s: "YPT1BN1A", n: 1, p: 2.7 },{ s: "YPT1BN2A", n: 1, p: 2.7 },
-    { s: "YPT1C(3)N0", n: 1, p: 2.7 },{ s: "YPT1CN0", n: 2, p: 5.4 },{ s: "YPT2N0", n: 2, p: 5.4 },
-    { s: "YPT2N1A", n: 2, p: 5.4 },{ s: "YPT2N2A", n: 1, p: 2.7 },{ s: "YPT3N0", n: 3, p: 8.1 },
-    { s: "YPT3N3A", n: 1, p: 2.7 },{ s: "YPTISN0", n: 1, p: 2.7 },
-  ];
-
-  // 5. Treatment Response
-  const resp = [
-    { name: "Complete Response", n: 11, pct: 29.7 },{ name: "Partial Response", n: 16, pct: 43.2 },
-    { name: "Progressive Disease", n: 3, pct: 8.1 },{ name: "Stable Disease", n: 7, pct: 18.9 },
-  ];
-
-  // 6. Pathological Outcomes
-  const rcb = [
-    { name: "Class 0 (pCR)", n: 12, pct: 32.4 },{ name: "Class I", n: 7, pct: 18.9 },
-    { name: "Class II", n: 13, pct: 35.1 },{ name: "Class III", n: 5, pct: 13.5 },
-  ];
-
-  // 7. Cross-Tabulations
-  const crossTabs: Array<{t:string;h:string[];r:any[][];chi:number;pv:number;sig:boolean}> = [
-    { t: "Age Group × Pathological Complete Response", h: ["Age Group","No (n)","No (%)","Yes (n)","Yes (%)","Total"],
-      r: [["<40 yrs",5,"100.0%",0,"0.0%",5],["41-50 yrs",8,"57.1%",6,"42.9%",14],["51-60 yrs",8,"66.7%",4,"33.3%",12],["61-70 yrs",2,"66.7%",1,"33.3%",3],[">70 yrs",2,"66.7%",1,"33.3%",3],["Total",25,"67.6%",12,"32.4%",37]], chi:3.10,pv:0.54,sig:false },
-    { t: "Age Group × RCB Class", h: ["Age Group","Class 0","Class I","Class II","Class III","Total"],
-      r: [["<40 yrs","0 (0%)","1 (20%)","3 (60%)","1 (20%)",5],["41-50 yrs","6 (42.9%)","3 (21.4%)","5 (35.7%)","0 (0%)",14],["51-60 yrs","4 (33.3%)","3 (25%)","1 (8.3%)","4 (33.3%)",12],["61-70 yrs","1 (33.3%)","0 (0%)","2 (66.7%)","0 (0%)",3],[">70 yrs","1 (33.3%)","0 (0%)","2 (66.7%)","0 (0%)",3],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]], chi:14.89,pv:0.24,sig:false },
-    { t: "Age Group × Clinical Response", h: ["Age Group","Complete","Partial","Progressive","Stable","Total"],
-      r: [["<40 yrs","1 (20%)","3 (60%)","0 (0%)","1 (20%)",5],["41-50 yrs","6 (42.9%)","8 (57.1%)","0 (0%)","0 (0%)",14],["51-60 yrs","3 (25%)","3 (25%)","2 (16.7%)","4 (33.3%)",12],["61-70 yrs","0 (0%)","1 (33.3%)","1 (33.3%)","1 (33.3%)",3],[">70 yrs","1 (33.3%)","1 (33.3%)","0 (0%)","1 (33.3%)",3],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]], chi:13.82,pv:0.31,sig:false },
-    { t: "Hormone Status × Laterality", h: ["Hormone Status","Left","Right","Total"],
-      r: [["EP PR +ve","4 (57.1%)","3 (42.9%)",7],["ER+ve Her2 +ve","0 (0%)","1 (100%)",1],["Her2 +ve","6 (75%)","2 (25%)",8],["PR +ve","1 (50%)","1 (50%)",2],["PR +ve Her2 +ve","2 (100%)","0 (0%)",2],["TNBC","3 (37.5%)","5 (62.5%)",8],["TPBC","5 (55.6%)","4 (44.4%)",9],["Total","21 (56.8%)","16 (43.2%)",37]], chi:5.17,pv:0.52,sig:false },
-    { t: "Hormone Status × Clinical Features", h: ["Hormone","Mass","Mass+LN","Pain/Swelling","Total"],
-      r: [["EP PR +ve","7 (100%)","0","0",7],["ER+ve Her2 +ve","1 (100%)","0","0",1],["Her2 +ve","5 (62.5%)","1 (12.5%)","2 (25%)",8],["PR +ve","2 (100%)","0","0",2],["PR +ve Her2 +ve","2 (100%)","0","0",2],["TNBC","8 (100%)","0","0",8],["TPBC","9 (100%)","0","0",9],["Total","34 (91.9%)","1 (2.7%)","2 (5.4%)",37]], chi:11.83,pv:0.45,sig:false },
-    { t: "Hormone Status × pCR", h: ["Hormone Status","No","Yes","Total"],
-      r: [["EP PR +ve","6 (85.7%)","1 (14.3%)",7],["ER+ve Her2 +ve","1 (100%)","0 (0%)",1],["Her2 +ve","4 (50%)","4 (50%)",8],["PR +ve","1 (50%)","1 (50%)",2],["PR +ve Her2 +ve","1 (50%)","1 (50%)",2],["TNBC","7 (87.5%)","1 (12.5%)",8],["TPBC","5 (55.6%)","4 (44.4%)",9],["Total","25 (67.6%)","12 (32.4%)",37]], chi:5.26,pv:0.51,sig:false },
-    { t: "Hormone Status × RCB Class", h: ["Hormone","Class 0","Class I","Class II","Class III","Total"],
-      r: [["EP PR +ve","1 (14.3%)","1 (14.3%)","4 (57.1%)","1 (14.3%)",7],["ER+ve Her2+","0","0","1 (100%)","0",1],["Her2 +ve","4 (50%)","0","4 (50%)","0",8],["PR +ve","1 (50%)","1 (50%)","0","0",2],["PR+ve Her2+","1 (50%)","0","1 (50%)","0",2],["TNBC","1 (12.5%)","2 (25%)","3 (37.5%)","2 (25%)",8],["TPBC","4 (44.4%)","3 (33.3%)","0","2 (22.2%)",9],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]], chi:17.59,pv:0.48,sig:false },
-    { t: "Hormone Status × Clinical Response", h: ["Hormone","Complete","Partial","Progressive","Stable","Total"],
-      r: [["EP PR +ve","1 (14.3%)","2 (28.6%)","1 (14.3%)","3 (42.9%)",7],["ER+ve Her2+","0","1 (100%)","0","0",1],["Her2 +ve","2 (25%)","5 (62.5%)","0","1 (12.5%)",8],["PR +ve","1 (50%)","1 (50%)","0","0",2],["PR+ve Her2+","1 (50%)","1 (50%)","0","0",2],["TNBC","1 (12.5%)","4 (50%)","1 (12.5%)","2 (25%)",8],["TPBC","5 (55.6%)","2 (22.2%)","1 (11.1%)","1 (11.1%)",9],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]], chi:12.47,pv:0.82,sig:false },
-    { t: "Biopsy × pCR", h: ["Biopsy Type","No","Yes","Total"],
-      r: [["Adenoid Cystic Ca.","1 (100%)","0",1],["DCIS","1 (50%)","1 (50%)",2],["Inv. Ca. of Breast","17 (65.4%)","9 (34.6%)",26],["Inv. Ca. Sq. Diff.","1 (100%)","0",1],["Inv. Ductal Ca.","3 (60%)","2 (40%)",5],["Inv. Solid Pap. Ca.","2 (100%)","0",2],["Total","25 (67.6%)","12 (32.4%)",37]], chi:2.38,pv:0.79,sig:false },
-    { t: "Biopsy × RCB Class", h: ["Biopsy","Class 0","Class I","Class II","Class III","Total"],
-      r: [["Adenoid Cystic","0","0","1 (100%)","0",1],["DCIS","1 (50%)","1 (50%)","0","0",2],["Inv. Ca. Breast","9 (34.6%)","5 (19.2%)","9 (34.6%)","3 (11.5%)",26],["Inv. Ca. Sq.","0","0","1 (100%)","0",1],["Inv. Ductal Ca.","2 (40%)","1 (20%)","0","2 (40%)",5],["Inv. Solid Pap.","0","0","2 (100%)","0",2],["Total","12 (32.4%)","7 (18.9%)","13 (35.1%)","5 (13.5%)",37]], chi:14.13,pv:0.51,sig:false },
-    { t: "Biopsy × Clinical Response", h: ["Biopsy","Complete","Partial","Progressive","Stable","Total"],
-      r: [["Adenoid Cystic","0","1 (100%)","0","0",1],["DCIS","2 (100%)","0","0","0",2],["Inv. Ca. Breast","6 (23.1%)","13 (50%)","2 (7.7%)","5 (19.2%)",26],["Inv. Ca. Sq.","0","1 (100%)","0","0",1],["Inv. Ductal Ca.","3 (60%)","1 (20%)","0","1 (20%)",5],["Inv. Solid Pap.","0","0","1 (50%)","1 (50%)",2],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]], chi:17.40,pv:0.129,sig:false },
-    { t: "RCB Class × Clinical Response ★", h: ["RCB Class","Complete","Partial","Progressive","Stable","Total"],
-      r: [["Class 0","7 (58.3%)","3 (25%)","0 (0%)","2 (16.7%)",12],["Class I","2 (28.6%)","4 (57.1%)","0 (0%)","1 (14.3%)",7],["Class II","1 (7.7%)","9 (69.2%)","1 (7.7%)","2 (15.4%)",13],["Class III","1 (20%)","0 (0%)","2 (40%)","2 (40%)",5],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]], chi:20.20,pv:0.01,sig:true },
-    { t: "pCR × Clinical Response ★", h: ["pCR","Complete","Partial","Progressive","Stable","Total"],
-      r: [["No","4 (16%)","13 (52%)","3 (12%)","5 (20%)",25],["Yes","7 (58.3%)","3 (25%)","0 (0%)","2 (16.7%)",12],["Total","11 (29.7%)","16 (43.2%)","3 (8.1%)","7 (18.9%)",37]], chi:7.74,pv:0.05,sig:true },
-    { t: "Clinical TNM × Biopsy ★", h: ["Association","χ²","P Value","Significance"],
-      r: [["Clinical TNM Staging × Biopsy Histology","124.49","0.009","Significant"]], chi:124.49,pv:0.009,sig:true },
-    { t: "Clinical TNM × RCB Class", h: ["Association","χ²","P Value","Significance"],
-      r: [["Clinical TNM Staging × RCB Class","57.04","0.36","Not Significant"]], chi:57.04,pv:0.36,sig:false },
-  ];
-
-  // 8. Statistical Summary
-  const allStats = [
-    { t: "Age Group × pCR", chi: 3.10, p: 0.54, s: false },
-    { t: "Age Group × RCB", chi: 14.89, p: 0.24, s: false },
-    { t: "Age Group × Response", chi: 13.82, p: 0.31, s: false },
-    { t: "Hormone × Laterality", chi: 5.17, p: 0.52, s: false },
-    { t: "Hormone × Clinical Features", chi: 11.83, p: 0.45, s: false },
-    { t: "Hormone × pCR", chi: 5.26, p: 0.51, s: false },
-    { t: "Hormone × RCB", chi: 17.59, p: 0.48, s: false },
-    { t: "Hormone × Response", chi: 12.47, p: 0.82, s: false },
-    { t: "Biopsy × pCR", chi: 2.38, p: 0.79, s: false },
-    { t: "Biopsy × RCB", chi: 14.13, p: 0.51, s: false },
-    { t: "Biopsy × Response", chi: 17.40, p: 0.129, s: false },
-    { t: "RCB × Response", chi: 20.20, p: 0.01, s: true },
-    { t: "pCR × Response", chi: 7.74, p: 0.05, s: true },
-    { t: "Clinical TNM × Biopsy", chi: 124.49, p: 0.009, s: true },
-    { t: "Clinical TNM × RCB", chi: 57.04, p: 0.36, s: false },
-  ];
-
-  /* ════════════════════════════════════════════════════════
-     COUNTERS — reset each render
-  ════════════════════════════════════════════════════════ */
-  let tblNum = 0;
-  let figNum = 0;
-
-  /* ════════════════════════════════════════════════════════
-     COMPONENTS
-  ════════════════════════════════════════════════════════ */
-  const Tbl = (props: { headers: string[]; rows: any[][]; caption: string; chi?: number; pv?: number; sig?: boolean; small?: boolean }) => {
-    const num = ++tblNum;
-    return (
-      <div style={{ marginBottom: 18, pageBreakInside: "avoid" }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Table {num}: {props.caption}</p>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: props.small ? 8 : 9 }}>
-          <thead>
-            <tr style={{ background: "#f1f5f9" }}>
-              {props.headers.map((h: string, i: number) => (
-                <th key={i} style={{ border: "1px solid #cbd5e1", padding: "4px 6px", textAlign: "left" as const, fontWeight: 700, color: "#1e293b" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {props.rows.map((r: any[], i: number) => (
-              <tr key={i} style={{ background: i === props.rows.length - 1 ? "#f8fafc" : "white", fontWeight: i === props.rows.length - 1 ? 700 : 400 }}>
-                {r.map((c: any, j: number) => (
-                  <td key={j} style={{ border: "1px solid #e2e8f0", padding: "3px 6px", color: "#475569" }}>{c}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {props.chi !== undefined && (
-          <p style={{ fontSize: 8, marginTop: 3, color: props.sig ? "#047857" : "#64748b", fontWeight: 600 }}>
-            χ² = {props.chi}, P = {props.pv}, {props.sig ? "Statistically Significant" : "Statistically Not Significant"}
-          </p>
-        )}
-      </div>
-    );
-  };
-
-  const Fig = (props: { children: React.ReactNode; caption: string; h?: number }) => {
-    const num = ++figNum;
-    return (
-      <div style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
-        <div style={{ height: props.h || 220, width: "100%" }}>
-          <ResponsiveContainer width="100%" height="100%">{props.children}</ResponsiveContainer>
-        </div>
-        <p style={{ fontSize: 8, color: "#64748b", textAlign: "center" as const, marginTop: 4, fontStyle: "italic" }}>Figure {num}: {props.caption}</p>
-      </div>
-    );
-  };
-
-  const PB = () => <div style={{ pageBreakAfter: "always" as const, height: 1 }} />;
-
-  const Sec = (props: { num: number; title: string }) => (
-    <div style={{ borderBottom: "2px solid #4f46e5", paddingBottom: 4, marginBottom: 14, marginTop: 24 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", margin: 0 }}>{props.num}. {props.title}</h2>
+// ─── CUSTOM TOOLTIP ─────────────────────────────────
+const CTooltip = (props: any) => {
+  const {active, payload, label} = props;
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{background:"rgba(15,23,42,0.92)",backdropFilter:"blur(12px)",borderRadius:10,padding:"10px 14px",border:"1px solid rgba(255,255,255,0.08)",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+      <p style={{color:"#e2e8f0",fontSize:11,fontWeight:700,margin:"0 0 6px",letterSpacing:0.3}}>{label}</p>
+      {payload.map((e: any, i: number) => (
+        <p key={i} style={{color:e.color||"#94a3b8",fontSize:11,margin:"2px 0",fontWeight:500}}>
+          {e.name}: <span style={{color:"#fff",fontWeight:700}}>{e.value}</span>
+        </p>
+      ))}
     </div>
   );
+};
 
-  // Reset counters
-  tblNum = 0;
-  figNum = 0;
+// ─── REUSABLE COMPONENTS ────────────────────────────
+const Card: React.FC<{children: React.ReactNode; style?: React.CSSProperties}> = ({children, style}) => (
+  <div style={{background:P.card,borderRadius:16,border:`1px solid ${P.border}`,padding:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02)",transition:"box-shadow 0.2s",overflow:"hidden",...style}}>{children}</div>
+);
 
-  /* ════════════════════════════════════════════════════════
-     RENDER
-  ════════════════════════════════════════════════════════ */
-  return (
-    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", maxWidth: 780, margin: "0 auto", padding: "30px 36px", color: "#1e293b", fontSize: 10, lineHeight: 1.5 }}>
+const Metric: React.FC<{label:string; value:string; sub?:string; color?:string}> = ({label, value, sub, color="#6366f1"}) => (
+  <div style={{background:`linear-gradient(135deg, ${color}08, ${color}04)`,border:`1px solid ${color}18`,borderRadius:14,padding:"18px 20px",minWidth:140,flex:"1 1 150px"}}>
+    <div style={{fontSize:11,fontWeight:700,color:P.textMuted,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{label}</div>
+    <div style={{fontSize:28,fontWeight:800,color:P.text,lineHeight:1.1,letterSpacing:-0.5}}>{value}</div>
+    {sub && <div style={{fontSize:11,color:P.textSec,marginTop:4,fontWeight:500}}>{sub}</div>}
+  </div>
+);
 
-      {/* ═══════════════ TITLE PAGE ═══════════════ */}
-      <div style={{ textAlign: "center" as const, paddingTop: 60, paddingBottom: 40 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", letterSpacing: 3, textTransform: "uppercase" as const, marginBottom: 20 }}>Thesis Statistics Report</p>
-        <h1 style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.3, marginBottom: 16, color: "#0f172a" }}>
-          Clinico-Pathological Correlation of Neoadjuvant Chemotherapy Outcomes in Invasive Breast Carcinoma
-        </h1>
-        <p style={{ fontSize: 12, color: "#64748b", marginBottom: 30 }}>Comprehensive Statistical Analysis of 37 Cases</p>
-        <div style={{ display: "inline-block", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 24px", fontSize: 9, color: "#475569", textAlign: "left" as const }}>
-          <div><strong>Cohort:</strong> N = 37 | All Female | Single Lesion</div>
-          <div><strong>Staging:</strong> AJCC 8th Edition</div>
-          <div><strong>Response:</strong> RECIST 1.1 Criteria</div>
-          <div><strong>Pathology:</strong> RCB Index Classification</div>
-          <div><strong>Statistics:</strong> 15 Chi-Square Cross-tabulation Analyses</div>
-          <div><strong>Contents:</strong> 31 Tables, 12 Figures, 8 Sections</div>
-        </div>
-      </div>
-      <PB />
+const SectionHead: React.FC<{num:number; title:string; sub?:string}> = ({num, title, sub}) => (
+  <div style={{marginBottom:28,paddingTop:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
+      <span style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:12,fontWeight:800,width:32,height:32,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>{num}</span>
+      <h2 style={{fontSize:22,fontWeight:800,color:P.text,margin:0,letterSpacing:-0.4}}>{title}</h2>
+    </div>
+    {sub && <p style={{fontSize:13,color:P.textSec,margin:"0 0 0 44px",lineHeight:1.5}}>{sub}</p>}
+    <div style={{height:2,background:"linear-gradient(90deg,#6366f1,transparent)",marginTop:12,borderRadius:2}} />
+  </div>
+);
 
+const ChartTitle: React.FC<{children: React.ReactNode}> = ({children}) => (
+  <p style={{fontSize:12,fontWeight:700,color:P.textSec,margin:"0 0 14px",letterSpacing:0.2}}>{children}</p>
+);
 
-      {/* ═══════════════ SECTION 1: DEMOGRAPHICS ═══════════════ */}
-      <Sec num={1} title="Baseline Demographics" />
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" as const }}>
-        {[["Total Cases","37"],["Gender","100% Female"],["Mean Age","51.57 ± 10.23 yrs"],["Lesions","Single (100%)"],["Peak Age Group","41-50 yrs (37.8%)"]].map(([l,v],i) => (
-          <div key={i} style={{ flex: "1 1 120px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 10px", textAlign: "center" as const }}>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" as const }}>{l}</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#1e293b" }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Table 1 */}
-      <Tbl caption="Age Distribution" headers={["Age Group","Frequency (n)","Percentage (%)"]}
-        rows={[...age.map(d => [d.group, d.n, `${d.pct}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 1 */}
-      <Fig caption="Age Group Distribution (N=37)">
-        <BarChart data={age} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="group" tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" fill="#4f46e5" radius={[4,4,0,0]} name="Count" label={{position:"top",fontSize:7,fill:"#334155",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      {/* Table 2 */}
-      <Tbl caption="Laterality Distribution" headers={["Laterality","Frequency (n)","Percentage (%)"]}
-        rows={[...lat.map(d => [d.name, d.n, `${d.pct}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 2 */}
-      <Fig caption="Breast Laterality" h={220}>
-        <PieChart>
-          <Pie data={lat} cx="50%" cy="45%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="n"
-            label={({cx,cy,midAngle,innerRadius,outerRadius,n,pct}: any) => {
-              const r = innerRadius + (outerRadius - innerRadius) * 1.8;
-              const x = cx + r * Math.cos(-midAngle * Math.PI / 180);
-              const y = cy + r * Math.sin(-midAngle * Math.PI / 180);
-              return <text x={x} y={y} fill="#334155" textAnchor="middle" dominantBaseline="central" style={{fontSize:8,fontWeight:700}}>{n} ({pct}%)</text>;
-            }} labelLine={{stroke:"#94a3b8",strokeWidth:0.5}}>
-            <Cell fill="#4f46e5" /><Cell fill="#ec4899" />
-          </Pie>
-          <Tooltip formatter={(v: any, name: any, props: any) => [`${v} (${props.payload.pct}%)`, name]} />
-          <Legend verticalAlign="bottom" height={30} wrapperStyle={{fontSize:8}} />
-        </PieChart>
-      </Fig>
-
-      <PB />
-
-
-      {/* ═══════════════ SECTION 2: CLINICAL PROFILE ═══════════════ */}
-      <Sec num={2} title="Clinical Profile" />
-
-      {/* Table 3 */}
-      <Tbl caption="Clinical Features at Presentation" headers={["Feature","Frequency (n)","Percentage (%)"]}
-        rows={[...clin.map(d => [d.feature, d.n, `${d.pct}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Table 4 */}
-      <Tbl caption="Single Largest Tumor Diameter (cm)" headers={["Phase","Mean","SD","Min","Max"]}
-        rows={diam.map(d => [d.phase, d.mean, d.sd, d.min, d.max])} />
-
-      {/* Figure 3 */}
-      <Fig caption="Mean Tumor Diameter: Pre vs Post Chemotherapy">
-        <BarChart data={diam} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="phase" tick={{fontSize:9}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} domain={[0,6]} />
-          <Tooltip /><Bar dataKey="mean" fill="#4f46e5" radius={[4,4,0,0]} name="Mean cm" label={{position:"top",fontSize:7,fill:"#334155",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      {/* Table 5 */}
-      <Tbl caption="Tumor Diameter by Hormone Status (Pre vs Post)" headers={["Hormone Status","Pre Mean","Pre SD","Post Mean","Post SD"]} small
-        rows={[["EP PR +ve",3.586,1.7497,2.657,2.1938],["ER+ve Her2 +ve",8.190,"—",4.000,"—"],["Her2 +ve",4.886,1.7268,1.663,1.0514],["PR +ve",3.850,0.2121,0.500,0.7071],["PR +ve Her2 +ve",7.100,6.2225,2.350,3.3234],["TNBC",4.850,2.4030,3.588,2.6068],["TPBC",3.700,1.2952,1.200,1.6117]]} />
-
-      {/* Figure 4 */}
-      <Fig caption="Diameter by Hormone Status (Pre vs Post)">
-        <BarChart data={diamH} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="name" tick={{fontSize:7}} axisLine={false} tickLine={false} interval={0} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Legend wrapperStyle={{fontSize:8}} />
-          <Bar dataKey="pre" fill="#f43f5e" name="Pre-Chemo" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#be123c",fontWeight:600} as any} />
-          <Bar dataKey="post" fill="#10b981" name="Post-Chemo" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#047857",fontWeight:600} as any} />
-        </BarChart>
-      </Fig>
-
-      {/* Table 6 */}
-      <Tbl caption="Tumor Diameter by Biopsy Histology (Pre vs Post)" headers={["Biopsy Type","Pre Mean","Pre SD","Post Mean","Post SD"]} small
-        rows={[["Adenoid Cystic Ca.",7.000,"—",4.800,"—"],["DCIS",4.700,1.4142,0.000,0.0000],["Inv. Ca. of Breast",3.988,1.7892,1.881,1.6546],["Inv. Ca. Sq. Diff.",11.500,"—",4.700,"—"],["Inv. Ductal Ca.",5.160,1.9204,1.900,2.2760],["Inv. Solid Pap. Ca.",4.500,3.5355,6.600,0.2828]]} />
-
-      {/* Figure 5 */}
-      <Fig caption="Diameter by Biopsy Type (Pre vs Post)">
-        <BarChart data={diamB} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="name" tick={{fontSize:7}} axisLine={false} tickLine={false} interval={0} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Legend wrapperStyle={{fontSize:8}} />
-          <Bar dataKey="pre" fill="#6366f1" name="Pre-Chemo" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#4338ca",fontWeight:600} as any} />
-          <Bar dataKey="post" fill="#06b6d4" name="Post-Chemo" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#0e7490",fontWeight:600} as any} />
-        </BarChart>
-      </Fig>
-
-      <PB />
-
-
-      {/* ═══════════════ SECTION 3: BIOLOGICAL PROFILING ═══════════════ */}
-      <Sec num={3} title="Biological Profiling" />
-
-      {/* Table 7 */}
-      <Tbl caption="Hormone & Receptor Status (7 Categories)" headers={["Subtype","Frequency (n)","Percentage (%)"]}
-        rows={[...hormone.map(d => [d.name, d.n, `${d.pct}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 6 */}
-      <Fig caption="Molecular Subtype Distribution">
-        <BarChart data={hormone} layout="vertical" margin={{top:5,right:30,left:5,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-          <XAxis type="number" tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <YAxis dataKey="name" type="category" width={100} tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" fill="#8b5cf6" radius={[0,4,4,0]} name="Count" label={{position:"right",fontSize:7,fill:"#334155",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      {/* Table 8 */}
-      <Tbl caption="Biopsy Histology (6 Types)" headers={["Histology","Frequency (n)","Percentage (%)"]}
-        rows={[...biopsy.map(d => [d.type, d.n, `${d.pct}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 7 */}
-      <Fig caption="Biopsy Subtype Distribution" h={220}>
-        <BarChart data={biopsy} margin={{top:18,right:10,left:0,bottom:5}} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-          <XAxis type="number" tick={{fontSize:7}} axisLine={false} tickLine={false} />
-          <YAxis dataKey="type" type="category" width={160} tick={{fontSize:7}} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(v: any, name: any, props: any) => [`${v} (${props.payload.pct}%)`, "Count"]} />
-          <Bar dataKey="n" radius={[0,4,4,0]} name="Count" label={{position:"right",fontSize:7,fill:"#334155",fontWeight:700} as any}>
-            {biopsy.map((_: any, i: number) => <Cell key={i} fill={C[i]} />)}
-          </Bar>
-        </BarChart>
-      </Fig>
-
-      <PB />
-
-
-      {/* ═══════════════ SECTION 4: TNM STAGING ═══════════════ */}
-      <Sec num={4} title="TNM Staging" />
-
-      {/* Table 9 */}
-      <Tbl caption="Clinical TNM Staging — Pre-Treatment (19 Categories)" headers={["TNM Stage","n","(%)"]} small
-        rows={[...tnmPre.map(d => [d.s, d.n, `${d.p}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 8 */}
-      <Fig caption="Clinical TNM Staging Distribution" h={220}>
-        <BarChart data={tnmPre} margin={{top:18,right:5,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="s" tick={{fontSize:6} as any} axisLine={false} tickLine={false} height={50} interval={0} />
-          <YAxis tick={{fontSize:7}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" fill="#f59e0b" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#92400e",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      <PB />
-
-      {/* Table 10 */}
-      <Tbl caption="Post-Surgical TN Staging (17 Categories)" headers={["YP Stage","n","(%)"]} small
-        rows={[...tnmPost.map(d => [d.s, d.n, `${d.p}%`]),["Total",37,"100.0%"]]} />
-
-      {/* Figure 9 */}
-      <Fig caption="Post-Surgical TN Staging Distribution" h={220}>
-        <BarChart data={tnmPost} margin={{top:18,right:5,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="s" tick={{fontSize:6} as any} axisLine={false} tickLine={false} height={50} interval={0} />
-          <YAxis tick={{fontSize:7}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" fill="#10b981" radius={[3,3,0,0]} label={{position:"top",fontSize:6,fill:"#065f46",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      <PB />
-
-
-      {/* ═══════════════ SECTION 5: TREATMENT RESPONSE ═══════════════ */}
-      <Sec num={5} title="Treatment Response" />
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" as const }}>
-        {[["Overall Response Rate","72.9%"],["Complete Response","29.7% (n=11)"],["Partial Response","43.2% (n=16)"],["Non-Responders","27.0% (n=10)"]].map(([l,v],i) => (
-          <div key={i} style={{ flex: "1 1 140px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 10px", textAlign: "center" as const }}>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" as const }}>{l}</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#1e293b" }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Table 11 */}
-      <Tbl caption="Axillary Lymph Nodes — Pre-Chemotherapy" headers={["Status","n","(%)"]}
-        rows={[["No",9,"24.3%"],["Yes",28,"75.7%"],["Total",37,"100.0%"]]} />
-
-      {/* Table 12 */}
-      <Tbl caption="Axillary Lymph Nodes — Post-Chemotherapy" headers={["Status","n","(%)"]}
-        rows={[["No",25,"67.6%"],["Yes",12,"32.4%"],["Total",37,"100.0%"]]} />
-
-      {/* Figure 10 */}
-      <Fig caption="Axillary Nodal Conversion (Pre vs Post)">
-        <BarChart data={[{phase:"Pre-Chemo",Positive:28,Negative:9},{phase:"Post-Chemo",Positive:12,Negative:25}]} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="phase" tick={{fontSize:9}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Legend wrapperStyle={{fontSize:8}} />
-          <Bar dataKey="Positive" fill="#f43f5e" radius={[3,3,0,0]} label={{position:"top",fontSize:7,fill:"#be123c",fontWeight:700} as any} />
-          <Bar dataKey="Negative" fill="#10b981" radius={[3,3,0,0]} label={{position:"top",fontSize:7,fill:"#047857",fontWeight:700} as any} />
-        </BarChart>
-      </Fig>
-
-      <p style={{ fontSize: 9, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "6px 10px", color: "#92400e", marginBottom: 14 }}>
-        <strong>Nodal Conversion Rate:</strong> 16 of 28 node-positive patients (57.1%) converted to node-negative post-NAC.
+const Tbl: React.FC<{caption:string; headers:string[]; rows:any[][]; chi?:number; pv?:number; sig?:boolean; compact?:boolean}> = ({caption, headers, rows, chi, pv, sig, compact}) => (
+  <div style={{marginBottom:20,overflow:"hidden"}}>
+    {caption && <p style={{fontSize:12,fontWeight:700,color:P.text,marginBottom:8}}>{caption}</p>}
+    <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${P.border}`}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:compact?11:12}}>
+        <thead>
+          <tr style={{background:"#f1f5f9"}}>
+            {headers.map((h: string, i: number) => <th key={i} style={{padding:"8px 12px",textAlign:"left",fontWeight:700,color:P.text,borderBottom:`2px solid ${P.border}`,whiteSpace:"nowrap",fontSize:11}}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any[], i: number) => (
+            <tr key={i} style={{background:i===rows.length-1?"#f8fafc":"#fff",fontWeight:i===rows.length-1?700:400,borderBottom:`1px solid ${P.border}`}}>
+              {r.map((c: any, j: number) => <td key={j} style={{padding:"7px 12px",color:P.textSec,whiteSpace:"nowrap"}}>{c}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {chi !== undefined && (
+      <p style={{fontSize:11,marginTop:6,color:sig?P.emeraldDk:P.textMuted,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+        <span style={{display:"inline-block",width:8,height:8,borderRadius:4,background:sig?P.emerald:P.textMuted}} />
+        χ² = {chi}, P = {pv} — {sig?"Statistically Significant":"Not Significant"}
       </p>
+    )}
+  </div>
+);
 
-      {/* Table 13 */}
-      <Tbl caption="RECIST 1.1 Clinical Response Categories" headers={["Category","Response","n","(%)"]}
-        rows={[["Responders","Complete Response",11,"29.7%"],["Responders","Partial Response",16,"43.2%"],["Non-Responders","Progressive Disease",3,"8.1%"],["Non-Responders","Stable Disease",7,"18.9%"],["","Total",37,"100.0%"]]} />
+const Badge: React.FC<{children: React.ReactNode; color?: string}> = ({children, color=P.indigo}) => (
+  <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:700,background:`${color}14`,color:color,letterSpacing:0.4}}>{children}</span>
+);
 
-      {/* Figure 11 */}
-      <Fig caption="Clinical Response Breakdown (RECIST 1.1)">
-        <BarChart data={resp} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="name" tick={{fontSize:8}} axisLine={false} tickLine={false} interval={0} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" radius={[4,4,0,0]} name="Count" label={{position:"top",fontSize:7,fill:"#334155",fontWeight:700} as any}>
-            {resp.map((_: any, i: number) => <Cell key={i} fill={i < 2 ? "#10b981" : "#f43f5e"} />)}
-          </Bar>
-        </BarChart>
-      </Fig>
+// ─── LATERALITY: HORIZONTAL BAR instead of overlapping pie ──
+const LatBar: React.FC = () => (
+  <div>
+    <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
+      <div style={{textAlign:"center",flex:1}}>
+        <div style={{fontSize:36,fontWeight:900,color:"#6366f1",lineHeight:1}}>56.8%</div>
+        <div style={{fontSize:13,fontWeight:700,color:P.textSec,marginTop:4}}>Left (n=21)</div>
+      </div>
+      <div style={{width:1,height:50,background:P.border}} />
+      <div style={{textAlign:"center",flex:1}}>
+        <div style={{fontSize:36,fontWeight:900,color:"#f43f5e",lineHeight:1}}>43.2%</div>
+        <div style={{fontSize:13,fontWeight:700,color:P.textSec,marginTop:4}}>Right (n=16)</div>
+      </div>
+    </div>
+    <div style={{display:"flex",borderRadius:12,overflow:"hidden",height:32}}>
+      <div style={{width:"56.8%",background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:700}}>Left 21</div>
+      <div style={{width:"43.2%",background:"#f43f5e",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:700}}>Right 16</div>
+    </div>
+    <div style={{display:"flex",justifyContent:"space-between",marginTop:8,marginBottom:20}}>
+      <span style={{fontSize:10,color:P.textMuted}}>0%</span>
+      <span style={{fontSize:10,color:P.textMuted}}>Total N=37</span>
+      <span style={{fontSize:10,color:P.textMuted}}>100%</span>
+    </div>
 
-      <PB />
-
-
-      {/* ═══════════════ SECTION 6: PATHOLOGICAL OUTCOMES ═══════════════ */}
-      <Sec num={6} title="Pathological Outcomes" />
-
-      {/* Table 14 */}
-      <Tbl caption="Pathological Complete Response (pCR)" headers={["pCR","n","(%)"]}
-        rows={[["No",25,"67.6%"],["Yes",12,"32.4%"],["Total",37,"100.0%"]]} />
-
-      {/* Table 15 */}
-      <Tbl caption="Residual Cancer Burden (RCB) Classification" headers={["RCB Class","n","(%)","Interpretation"]}
-        rows={[["Class 0 (pCR)",12,"32.4%","Complete response"],["Class I",7,"18.9%","Minimal residual"],["Class II",13,"35.1%","Moderate residual"],["Class III",5,"13.5%","Extensive residual"],["Total",37,"100.0%",""]]} />
-
-      {/* Figure 12 */}
-      <Fig caption="RCB Class Distribution">
-        <BarChart data={rcb} margin={{top:18,right:10,left:0,bottom:5}}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="name" tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize:8}} axisLine={false} tickLine={false} />
-          <Tooltip /><Bar dataKey="n" radius={[4,4,0,0]} name="Count" label={{position:"top",fontSize:7,fill:"#334155",fontWeight:700} as any}>
-            {rcb.map((_: any, i: number) => <Cell key={i} fill={["#10b981","#06b6d4","#f59e0b","#f43f5e"][i]} />)}
-          </Bar>
-        </BarChart>
-      </Fig>
-
-      <PB />
-
-
-      {/* ═══════════════ SECTION 7: CROSS-TABULATIONS ═══════════════ */}
-      <Sec num={7} title="Cross-Tabulation Analyses (Chi-Square Tests)" />
-      <p style={{ fontSize: 9, color: "#64748b", marginBottom: 14 }}>
-        All 15 chi-square tests of association are presented below (Tables 16–30). ★ denotes statistically significant results (P ≤ 0.05).
-      </p>
-
-      {/* Tables 16–30 */}
-      {crossTabs.map((ct, i) => (
-        <div key={i}>
-          <Tbl caption={ct.t} headers={ct.h} rows={ct.r} chi={ct.chi} pv={ct.pv} sig={ct.sig} small />
-          {(i === 4 || i === 8 || i === 11) && <PB />}
+    {/* Cohort snapshot */}
+    <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16}}>
+      <p style={{fontSize:11,fontWeight:700,color:P.textSec,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>Cohort Snapshot</p>
+      {([["Gender","100% Female","37/37"],["Lesions","Single (100%)","37/37"],["Mean Age","51.57 ± 10.23 yrs","—"],["Peak Group","41–50 yrs","37.8%"]] as const).map(([k,v,n],i)=>(
+        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<3?`1px solid ${P.border}08`:"none"}}>
+          <span style={{fontSize:12,color:P.textMuted,fontWeight:500}}>{k}</span>
+          <div style={{textAlign:"right"}}>
+            <span style={{fontSize:12,color:P.text,fontWeight:700}}>{v}</span>
+            <span style={{fontSize:10,color:P.textMuted,marginLeft:8}}>{n}</span>
+          </div>
         </div>
       ))}
+    </div>
+    <div style={{background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 14px",marginTop:14}}>
+      <p style={{fontSize:11,color:"#4338ca",margin:0,fontWeight:600,lineHeight:1.5}}>Left-sided predominance (56.8%) is consistent with published literature showing slightly higher breast cancer incidence on the left side.</p>
+    </div>
+  </div>
+);
 
-      <PB />
+// ─── pCR Visual ─────────────────────────────────────
+const PcrVisual: React.FC = () => (
+  <div>
+    <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:20}}>
+      <div style={{position:"relative",width:120,height:120}}>
+        <svg viewBox="0 0 120 120" width={120} height={120}>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" strokeWidth="12" />
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#10b981" strokeWidth="12"
+            strokeDasharray={`${32.4 * 3.267} ${100 * 3.267}`}
+            strokeDashoffset="0" strokeLinecap="round"
+            transform="rotate(-90 60 60)" />
+        </svg>
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+          <span style={{fontSize:24,fontWeight:900,color:P.text}}>32.4%</span>
+          <span style={{fontSize:9,color:P.textMuted,fontWeight:600}}>pCR</span>
+        </div>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+            <span style={{fontSize:12,fontWeight:600,color:P.emeraldDk}}>pCR (Yes)</span>
+            <span style={{fontSize:12,fontWeight:800,color:P.text}}>12 (32.4%)</span>
+          </div>
+          <div style={{height:8,background:"#e2e8f0",borderRadius:4,overflow:"hidden"}}>
+            <div style={{width:"32.4%",height:"100%",background:"#10b981",borderRadius:4}} />
+          </div>
+        </div>
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+            <span style={{fontSize:12,fontWeight:600,color:P.textSec}}>Residual (No)</span>
+            <span style={{fontSize:12,fontWeight:800,color:P.text}}>25 (67.6%)</span>
+          </div>
+          <div style={{height:8,background:"#e2e8f0",borderRadius:4,overflow:"hidden"}}>
+            <div style={{width:"67.6%",height:"100%",background:"#94a3b8",borderRadius:4}} />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
+// ─── MAIN APP ───────────────────────────────────────
+export default function App() {
+  const [sec, setSec] = useState(0);
+  const refs = useRef<(HTMLDivElement | null)[]>([]);
 
-      {/* ═══════════════ SECTION 8: STATISTICAL SUMMARY ═══════════════ */}
-      <Sec num={8} title="Complete Statistical Summary" />
+  const scrollTo = (i: number) => {
+    refs.current[i]?.scrollIntoView({behavior:"smooth",block:"start"});
+    setSec(i);
+  };
 
-      {/* Table 31 */}
-      <Tbl caption="Master Table — All Chi-Square Tests (N=15)" headers={["#","Association Tested","χ²","P Value","Result"]}
-        rows={allStats.map((s, i) => [i+1, s.t, s.chi, s.p, s.s ? "✓ Significant" : "Not Significant"])} />
+  return (
+    <div style={{fontFamily:"'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",background:"linear-gradient(180deg,#f0f2f8 0%,#f8fafc 100%)",minHeight:"100vh",color:P.text}}>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 16, marginBottom: 16, flexWrap: "wrap" as const }}>
-        <div style={{ flex: "1 1 200px", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: 12 }}>
-          <p style={{ fontSize: 8, fontWeight: 800, color: "#047857", textTransform: "uppercase" as const, marginBottom: 6 }}>Significant Associations (3/15)</p>
-          {allStats.filter(s => s.s).map((s, i) => (
-            <p key={i} style={{ fontSize: 8, color: "#065f46", margin: "2px 0" }}><strong>{s.t}</strong> — χ²={s.chi}, P={s.p}</p>
+      {/* ═══ STICKY NAV ═══ */}
+      <nav style={{position:"sticky",top:0,zIndex:100,background:"rgba(255,255,255,0.82)",backdropFilter:"blur(16px) saturate(180%)",borderBottom:"1px solid rgba(226,232,240,0.6)",padding:"0 24px"}}>
+        <div style={{maxWidth:1080,margin:"0 auto",display:"flex",alignItems:"center",gap:8,overflowX:"auto",height:52}}>
+          {secs.map((s,i) => (
+            <button key={i} onClick={()=>scrollTo(i)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:sec===i?"#6366f1":"transparent",color:sec===i?"#fff":"#64748b",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",transition:"all 0.2s",letterSpacing:0.2}}>{s}</button>
           ))}
         </div>
-        <div style={{ flex: "1 1 200px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 8, padding: 12 }}>
-          <p style={{ fontSize: 8, fontWeight: 800, color: "#4338ca", textTransform: "uppercase" as const, marginBottom: 6 }}>Key Outcome Metrics</p>
-          <p style={{ fontSize: 8, color: "#3730a3", margin: "2px 0" }}>pCR Rate: <strong>32.4%</strong> (12/37)</p>
-          <p style={{ fontSize: 8, color: "#3730a3", margin: "2px 0" }}>ORR (CR+PR): <strong>72.9%</strong> (27/37)</p>
-          <p style={{ fontSize: 8, color: "#3730a3", margin: "2px 0" }}>Nodal Conversion: <strong>57.1%</strong> (16/28)</p>
-          <p style={{ fontSize: 8, color: "#3730a3", margin: "2px 0" }}>Mean Diameter Reduction: <strong>51.2%</strong></p>
-        </div>
-      </div>
+      </nav>
 
-      {/* FINAL INTERPRETATIONS */}
-      <div style={{ background: "#1e1b4b", borderRadius: 12, padding: 20, color: "white", marginTop: 20, pageBreakInside: "avoid" }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 12 }}>Final Interpretations</h3>
-        <div style={{ fontSize: 9, lineHeight: 1.7, color: "#c7d2fe" }}>
-          <p style={{ marginBottom: 8 }}><strong style={{ color: "white" }}>1. Clinical Predictability:</strong> RECIST response categories significantly predict final pathological burden. RCB Class 0 patients had 58.3% complete clinical response vs 7.7% in Class II (χ²=20.20, P=0.01). pCR also significantly correlated with clinical response (χ²=7.74, P=0.05).</p>
-          <p style={{ marginBottom: 8 }}><strong style={{ color: "white" }}>2. Staging–Histology Correlation:</strong> Clinical TNM staging showed highly significant association with biopsy histology (χ²=124.49, P=0.009), indicating invasive carcinoma variants correlate with specific staging patterns.</p>
-          <p style={{ marginBottom: 8 }}><strong style={{ color: "white" }}>3. Nodal Impact:</strong> NAC achieved 57.1% nodal conversion (16/28 → node-negative), substantially reducing surgical burden.</p>
-          <p style={{ marginBottom: 8 }}><strong style={{ color: "white" }}>4. Non-Significant Predictors:</strong> Age (P=0.54), hormone receptor status (P=0.51), laterality, and biopsy histology were not individually significant predictors of pCR or RCB in this cohort. The small sample size (N=37) may limit power to detect moderate associations.</p>
-          <p><strong style={{ color: "white" }}>5. Tumor Size Reduction:</strong> Mean diameter decreased from 4.49 ± 2.19 cm to 2.19 ± 2.06 cm (51.2%). PR +ve subtype showed greatest reduction (87%), while invasive solid papillary carcinoma paradoxically increased (4.5 → 6.6 cm).</p>
-        </div>
-      </div>
+      <div style={{maxWidth:1080,margin:"0 auto",padding:"32px 24px 80px"}}>
 
-      {/* FOOTER */}
-      <div style={{ textAlign: "center" as const, marginTop: 30, paddingTop: 14, borderTop: "1px solid #e2e8f0" }}>
-        <p style={{ fontSize: 7, fontWeight: 800, color: "#94a3b8", letterSpacing: 2, textTransform: "uppercase" as const }}>
-          End of Report • NAC Study • N=37 • 31 Tables • 12 Figures • 15 Chi-Square Analyses • AJCC 8th Ed. • RECIST 1.1 • RCB Index
-        </p>
+        {/* ═══ SEC 0: HERO ═══ */}
+        <div ref={el => { refs.current[0] = el; }} style={{marginBottom:48}}>
+          <div style={{background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 40%,#4338ca 100%)",borderRadius:24,padding:"48px 40px",color:"#fff",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:-60,right:-60,width:260,height:260,borderRadius:"50%",background:"rgba(139,92,246,0.12)",filter:"blur(40px)"}} />
+            <div style={{position:"absolute",bottom:-40,left:-40,width:200,height:200,borderRadius:"50%",background:"rgba(99,102,241,0.1)",filter:"blur(30px)"}} />
+            <div style={{position:"relative",zIndex:1}}>
+              <Badge color="#a5b4fc">Thesis Statistics Report</Badge>
+              <h1 style={{fontSize:32,fontWeight:900,lineHeight:1.2,margin:"16px 0 12px",maxWidth:700,letterSpacing:-0.8}}>Clinico-Pathological Correlation of Neoadjuvant Chemotherapy Outcomes in Invasive Breast Carcinoma</h1>
+              <p style={{fontSize:15,color:"#c7d2fe",margin:0,maxWidth:600,lineHeight:1.6}}>Comprehensive Statistical Analysis of 37 Cases</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:10,marginTop:28}}>
+                {([["Cohort","N = 37 | All Female"],["Staging","AJCC 8th Edition"],["Response","RECIST 1.1"],["Pathology","RCB Index"],["Analytics","15 Chi-Square Tests"],["Content","31 Tables · 12 Figures"]] as const).map(([l,v],i)=>(
+                  <div key={i} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"8px 16px",backdropFilter:"blur(8px)"}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:1.2}}>{l}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:"#e0e7ff",marginTop:2}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{display:"flex",flexWrap:"wrap",gap:14,marginTop:20}}>
+            <Metric label="pCR Rate" value="32.4%" sub="12 of 37 patients" color="#10b981" />
+            <Metric label="Overall Response" value="72.9%" sub="CR + PR (27/37)" color="#6366f1" />
+            <Metric label="Nodal Conversion" value="57.1%" sub="16/28 → node-negative" color="#06b6d4" />
+            <Metric label="Tumor Reduction" value="51.2%" sub="4.49 → 2.19 cm mean" color="#f59e0b" />
+          </div>
+        </div>
+
+        {/* ═══ SEC 1: DEMOGRAPHICS ═══ */}
+        <div ref={el => { refs.current[1] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={1} title="Baseline Demographics" sub="Cohort: 37 female patients · Mean age 51.57 ± 10.23 years · 100% single lesion" />
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>Age Group Distribution (N=37)</ChartTitle>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={age} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="g" tick={{fontSize:11,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" radius={[8,8,0,0]} name="Count">
+                    {age.map((_,i) => <Cell key={i} fill={i===1?"#6366f1":i===2?"#818cf8":"#c7d2fe"} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <Tbl caption="" headers={["Age Group","n","(%)"]} rows={[...age.map(d=>[d.g,d.n,d.p+"%"]),["Total",37,"100%"]]} compact />
+            </Card>
+            <Card>
+              <ChartTitle>Breast Laterality</ChartTitle>
+              <LatBar />
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 2: CLINICAL ═══ */}
+        <div ref={el => { refs.current[2] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={2} title="Clinical Profile" sub="Features at presentation, tumor diameter measurements pre- and post-NAC" />
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>Clinical Features at Presentation</ChartTitle>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={clin} layout="vertical" margin={{top:5,right:30,left:5,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="f" type="category" width={130} tick={{fontSize:11,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" fill="#6366f1" radius={[0,8,8,0]} name="Count" barSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <ChartTitle>Mean Tumor Diameter: Pre vs Post NAC</ChartTitle>
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={diam} margin={{top:20,right:20,left:0,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="ph" tick={{fontSize:12,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} domain={[0,6]} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="mean" fill="#6366f1" radius={[8,8,0,0]} name="Mean (cm)" barSize={56} label={{position:"top",fontSize:13,fill:P.text,fontWeight:800}} />
+                  <Line type="monotone" dataKey="mean" stroke="#f43f5e" strokeWidth={2} dot={{r:5,fill:"#f43f5e"}} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <div style={{background:P.amberLt,border:"1px solid #fde68a",borderRadius:10,padding:"10px 14px",marginTop:12}}>
+                <p style={{fontSize:11,color:P.amberDk,margin:0,fontWeight:600}}>51.2% mean diameter reduction — 4.49 ± 2.19 cm → 2.19 ± 2.06 cm (range 1.4–11.5 → 0.1–6.8)</p>
+              </div>
+            </Card>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20,marginTop:20}}>
+            <Card>
+              <ChartTitle>Diameter by Hormone Status (Pre vs Post)</ChartTitle>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={diamH} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="n" tick={{fontSize:9,fill:P.textSec}} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} /><Legend wrapperStyle={{fontSize:11}} />
+                  <Bar dataKey="pre" fill="#f43f5e" name="Pre-Chemo" radius={[6,6,0,0]} barSize={16} />
+                  <Bar dataKey="post" fill="#10b981" name="Post-Chemo" radius={[6,6,0,0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <ChartTitle>Diameter by Biopsy Type (Pre vs Post)</ChartTitle>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={diamB} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="n" tick={{fontSize:9,fill:P.textSec}} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} /><Legend wrapperStyle={{fontSize:11}} />
+                  <Bar dataKey="pre" fill="#6366f1" name="Pre-Chemo" radius={[6,6,0,0]} barSize={16} />
+                  <Bar dataKey="post" fill="#06b6d4" name="Post-Chemo" radius={[6,6,0,0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 3: BIOLOGY ═══ */}
+        <div ref={el => { refs.current[3] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={3} title="Biological Profiling" sub="Molecular subtype distribution and biopsy histology classification" />
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>Molecular Subtype Distribution (7 Categories)</ChartTitle>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={hormone} layout="vertical" margin={{top:5,right:40,left:5,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="n" type="category" width={100} tick={{fontSize:11,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="v" radius={[0,8,8,0]} name="Count" barSize={22} label={{position:"right",fontSize:11,fill:P.text,fontWeight:700}}>
+                    {hormone.map((_,i) => <Cell key={i} fill={CC[i]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <ChartTitle>Biopsy Histology (6 Types)</ChartTitle>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={biopsy} layout="vertical" margin={{top:5,right:40,left:5,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="t" type="category" width={140} tick={{fontSize:10,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" radius={[0,8,8,0]} name="Count" barSize={22} label={{position:"right",fontSize:11,fill:P.text,fontWeight:700}}>
+                    {biopsy.map((_,i) => <Cell key={i} fill={CC[i%CC.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 4: STAGING ═══ */}
+        <div ref={el => { refs.current[4] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={4} title="TNM Staging" sub="Clinical pre-treatment (19 categories) and post-surgical pathological staging (17 categories)" />
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>Clinical TNM — Pre-Treatment (Top 10)</ChartTitle>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tnmPre} layout="vertical" margin={{top:5,right:30,left:5,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="s" type="category" width={110} tick={{fontSize:10,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" fill="#f59e0b" radius={[0,8,8,0]} name="Count" barSize={20} label={{position:"right",fontSize:10,fill:P.text,fontWeight:700}} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <ChartTitle>Post-Surgical TN Staging (Top Groups)</ChartTitle>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tnmPost} layout="vertical" margin={{top:5,right:30,left:5,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="s" type="category" width={110} tick={{fontSize:10,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" fill="#10b981" radius={[0,8,8,0]} name="Count" barSize={20} label={{position:"right",fontSize:10,fill:P.text,fontWeight:700}} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 5: RESPONSE ═══ */}
+        <div ref={el => { refs.current[5] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={5} title="Treatment Response" sub="RECIST 1.1 clinical response and axillary nodal conversion" />
+          <div style={{display:"flex",flexWrap:"wrap",gap:14,marginBottom:20}}>
+            <Metric label="Overall Response Rate" value="72.9%" color="#10b981" />
+            <Metric label="Complete Response" value="29.7%" sub="n = 11" color="#10b981" />
+            <Metric label="Partial Response" value="43.2%" sub="n = 16" color="#06b6d4" />
+            <Metric label="Non-Responders" value="27.0%" sub="n = 10" color="#f43f5e" />
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>RECIST 1.1 Clinical Response</ChartTitle>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={resp} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{fontSize:11,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" radius={[8,8,0,0]} name="Count" barSize={48} label={{position:"top",fontSize:12,fill:P.text,fontWeight:800}}>
+                    {resp.map((_,i) => <Cell key={i} fill={RESP_C[i]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <ChartTitle>Axillary Nodal Conversion (Pre vs Post)</ChartTitle>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={nodal} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="ph" tick={{fontSize:12,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} /><Legend wrapperStyle={{fontSize:11}} />
+                  <Bar dataKey="pos" fill="#f43f5e" name="Node Positive" radius={[6,6,0,0]} barSize={36} />
+                  <Bar dataKey="neg" fill="#10b981" name="Node Negative" radius={[6,6,0,0]} barSize={36} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{background:P.emeraldLt,border:"1px solid #a7f3d0",borderRadius:10,padding:"10px 14px",marginTop:8}}>
+                <p style={{fontSize:11,color:P.emeraldDk,margin:0,fontWeight:600}}>57.1% nodal conversion — 16 of 28 node-positive patients converted to node-negative post-NAC</p>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 6: PATHOLOGY ═══ */}
+        <div ref={el => { refs.current[6] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={6} title="Pathological Outcomes" sub="Pathological complete response (pCR) and Residual Cancer Burden classification" />
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:20}}>
+            <Card>
+              <ChartTitle>Pathological Complete Response (pCR)</ChartTitle>
+              <PcrVisual />
+              <Tbl caption="" headers={["pCR","n","(%)"]} rows={[["No",25,"67.6%"],["Yes",12,"32.4%"],["Total",37,"100.0%"]]} compact />
+            </Card>
+            <Card>
+              <ChartTitle>Residual Cancer Burden (RCB) Classification</ChartTitle>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={rcb} margin={{top:20,right:10,left:-10,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{fontSize:10,fill:P.textSec}} axisLine={false} tickLine={false} />
+                  <YAxis tick={{fontSize:10,fill:P.textMuted}} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CTooltip />} />
+                  <Bar dataKey="n" radius={[8,8,0,0]} name="Count" barSize={44} label={{position:"top",fontSize:12,fill:P.text,fontWeight:800}}>
+                    {rcb.map((_,i) => <Cell key={i} fill={RCB_C[i]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <Tbl caption="" headers={["RCB Class","n","(%)","Meaning"]} rows={[["Class 0 (pCR)",12,"32.4%","Complete"],["Class I",7,"18.9%","Minimal"],["Class II",13,"35.1%","Moderate"],["Class III",5,"13.5%","Extensive"],["Total",37,"100.0%",""]]} compact />
+            </Card>
+          </div>
+        </div>
+
+        {/* ═══ SEC 7: CROSS-TABS ═══ */}
+        <div ref={el => { refs.current[7] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={7} title="Cross-Tabulation Analyses" sub="All 15 chi-square tests of association. ★ = statistically significant (P ≤ 0.05)" />
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:16}}>
+            {crossTabs.map((ct,i) => (
+              <Card key={i} style={{borderLeft:ct.sig?`4px solid ${P.emerald}`:"4px solid transparent"}}>
+                <Tbl caption={ct.t} headers={ct.h} rows={ct.r} chi={ct.chi} pv={ct.pv} sig={ct.sig} compact />
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══ SEC 8: SUMMARY ═══ */}
+        <div ref={el => { refs.current[8] = el; }} style={{marginBottom:48}}>
+          <SectionHead num={8} title="Complete Statistical Summary" sub="Master table of all 15 chi-square tests and final interpretations" />
+          <Card style={{marginBottom:24}}>
+            <Tbl caption="Master Table — All Chi-Square Tests (N=15)" headers={["#","Association","χ²","P","Result"]}
+              rows={allStats.map((s,i)=>[i+1,s.t,s.chi,s.p,s.s?"✓ Significant":"Not Significant"])} />
+          </Card>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:20,marginBottom:28}}>
+            <Card style={{background:"linear-gradient(135deg,#ecfdf5,#d1fae5)",border:"1px solid #a7f3d0"}}>
+              <p style={{fontSize:11,fontWeight:800,color:P.emeraldDk,textTransform:"uppercase",letterSpacing:1.2,margin:"0 0 12px"}}>Significant Associations (3/15)</p>
+              {allStats.filter(s=>s.s).map((s,i)=>(
+                <div key={i} style={{padding:"8px 0",borderBottom:i<2?`1px solid #a7f3d044`:"none"}}>
+                  <p style={{fontSize:12,color:"#065f46",margin:0,fontWeight:700}}>{s.t}</p>
+                  <p style={{fontSize:11,color:"#047857",margin:"2px 0 0",fontWeight:500}}>χ² = {s.chi}, P = {s.p}</p>
+                </div>
+              ))}
+            </Card>
+            <Card style={{background:"linear-gradient(135deg,#eef2ff,#e0e7ff)",border:"1px solid #c7d2fe"}}>
+              <p style={{fontSize:11,fontWeight:800,color:P.indigoDk,textTransform:"uppercase",letterSpacing:1.2,margin:"0 0 12px"}}>Key Outcome Metrics</p>
+              {([["pCR Rate","32.4% (12/37)"],["ORR (CR+PR)","72.9% (27/37)"],["Nodal Conversion","57.1% (16/28)"],["Mean Diameter Δ","51.2%"]] as const).map(([l,v],i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:i<3?`1px solid #c7d2fe44`:"none"}}>
+                  <span style={{fontSize:12,color:"#3730a3",fontWeight:500}}>{l}</span>
+                  <span style={{fontSize:12,color:"#1e1b4b",fontWeight:800}}>{v}</span>
+                </div>
+              ))}
+            </Card>
+          </div>
+
+          {/* FINAL INTERPRETATIONS */}
+          <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%)",borderRadius:20,padding:"36px 32px",color:"#fff"}}>
+            <h3 style={{fontSize:20,fontWeight:800,margin:"0 0 24px",letterSpacing:-0.3}}>Final Interpretations</h3>
+            <div style={{display:"grid",gap:20}}>
+              {[
+                {t:"Clinical Predictability",c:"RECIST response categories significantly predict final pathological burden. RCB Class 0 patients had 58.3% complete clinical response vs 7.7% in Class II (χ²=20.20, P=0.01). pCR also significantly correlated with clinical response (χ²=7.74, P=0.05)."},
+                {t:"Staging–Histology Correlation",c:"Clinical TNM staging showed highly significant association with biopsy histology (χ²=124.49, P=0.009), indicating invasive carcinoma variants correlate with specific staging patterns."},
+                {t:"Nodal Impact",c:"NAC achieved 57.1% nodal conversion (16/28 → node-negative), substantially reducing surgical burden."},
+                {t:"Non-Significant Predictors",c:"Age (P=0.54), hormone receptor status (P=0.51), laterality, and biopsy histology were not individually significant predictors of pCR or RCB in this cohort (N=37)."},
+                {t:"Tumor Size Reduction",c:"Mean diameter decreased from 4.49 ± 2.19 cm to 2.19 ± 2.06 cm (51.2%). PR +ve subtype showed greatest reduction (87%), while invasive solid papillary carcinoma paradoxically increased (4.5 → 6.6 cm)."},
+              ].map((item,i)=>(
+                <div key={i} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:"16px 20px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                    <span style={{background:"rgba(99,102,241,0.3)",color:"#a5b4fc",fontSize:11,fontWeight:800,width:24,height:24,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
+                    <span style={{fontSize:14,fontWeight:700,color:"#e0e7ff"}}>{item.t}</span>
+                  </div>
+                  <p style={{fontSize:12,color:"#c7d2fe",margin:0,lineHeight:1.7,paddingLeft:34}}>{item.c}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div style={{textAlign:"center",paddingTop:24,borderTop:`1px solid ${P.border}`}}>
+          <p style={{fontSize:10,fontWeight:700,color:P.textMuted,letterSpacing:2,textTransform:"uppercase",margin:0}}>
+            End of Report · NAC Study · N=37 · 31 Tables · 12 Figures · 15 Chi-Square Analyses · AJCC 8th Ed. · RECIST 1.1 · RCB Index
+          </p>
+        </div>
       </div>
     </div>
   );
